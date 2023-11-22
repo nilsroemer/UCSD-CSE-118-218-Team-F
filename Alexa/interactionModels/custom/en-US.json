@@ -1,0 +1,87 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "intents": [
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "slots": [
+            {
+              "name": "Activity",
+              "type": "Activity"
+            },
+            {
+              "name": "Intensity",
+              "type": "Intensity"
+            }
+          ],
+          "name": "PlayActivityMusicIntent",
+          "samples": [
+            "play music for activity {Activity} and intensity {Intensity}",
+            "play music for {Activity} and {Intensity}"
+          ]
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        }
+      ],
+      "types": [
+        {
+          "values": [
+            {
+              "name": {
+                "value": "squat"
+              }
+            },
+            {
+              "name": {
+                "value": "press"
+              }
+            },
+            {
+              "name": {
+                "value": "curl"
+              }
+            }
+          ],
+          "name": "Activity"
+        },
+        {
+          "values": [
+            {
+              "name": {
+                "value": "low"
+              }
+            },
+            {
+              "name": {
+                "value": "high"
+              }
+            }
+          ],
+          "name": "Intensity"
+        }
+      ],
+      "invocationName": "workout music"
+    }
+  }
+}
