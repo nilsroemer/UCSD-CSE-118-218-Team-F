@@ -1,4 +1,7 @@
-# UCSD-CSE-118-218-Team-F
+# FITBEAT
+> **RythmTech**
+> 
+> UCSD CSE 118/218 Team F
 
 ## Alexa
 - Alexa skill that queries streaming server for music to play
