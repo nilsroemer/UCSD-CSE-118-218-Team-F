@@ -5,3 +5,6 @@
 
 ## Music-Server
 - Server that streams music on endpoint /stream
+
+## Music Emotion Recognition
+- Classification model for determining the emotion of the music
