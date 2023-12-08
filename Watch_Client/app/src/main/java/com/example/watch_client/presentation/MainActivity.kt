@@ -41,6 +41,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 import android.content.Context
+import android.hardware.SensorEventListener2
 import android.os.PowerManager
 
 
@@ -78,7 +79,9 @@ class MainActivity : ComponentActivity() {
 
         val mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         val heartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+        val accelerometerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
+        /* Heart Rate Stuff */
         val heartRateSensorListener: SensorEventListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val heartRateValue = event.values[0] // Heart rate value is stored in the first element of the values array
@@ -127,6 +130,68 @@ class MainActivity : ComponentActivity() {
             heartRateSensor,
             SensorManager.SENSOR_DELAY_NORMAL
         )
+
+        /* Accelerometer Stuff */
+        val ACCELERATION_CHANGE_BUFFER_SIZE = 10
+        var avg_acceleration_change = 0.0
+        var previousAcceleration = 9.6
+
+        if(accelerometerSensor != null) {
+            Log.d("Accelerometer", "Accelerometer started")
+
+            val accelerationChangeBuffer = RingBuffer(ACCELERATION_CHANGE_BUFFER_SIZE)
+
+            val accelerometerSensorListener: SensorEventListener = object : SensorEventListener2 {
+                override fun onFlushCompleted(sensor: Sensor) {
+                    // Handle flush completed event if needed
+                }
+
+                override fun onSensorChanged(event: SensorEvent) {
+                    val accelerometerValues = event.values
+                    val x = accelerometerValues[0]
+                    val y = accelerometerValues[1]
+                    val z = accelerometerValues[2]
+
+                    // Calculate the magnitude
+                    val magnitude = Math.sqrt((x * x + y * y + z * z).toDouble())
+
+                    if (previousAcceleration != null) {
+                        val accelerationChange = Math.abs(magnitude - previousAcceleration!!)
+
+                        if (accelerationChange > 0.15) {
+
+                            accelerationChangeBuffer.add(accelerationChange)
+
+                            // Calculate the average change in acceleration of the last 25 values
+                            if (accelerationChangeBuffer.size() == ACCELERATION_CHANGE_BUFFER_SIZE) {
+                                var sum = 0.0
+                                for (i in 0 until ACCELERATION_CHANGE_BUFFER_SIZE) {
+                                    sum += accelerationChangeBuffer[i]
+                                }
+
+                                avg_acceleration_change = sum / ACCELERATION_CHANGE_BUFFER_SIZE
+
+                                // Process the average change in acceleration as needed
+                                Log.d(
+                                    "Accelerometer",
+                                    "Average Acceleration Change: $avg_acceleration_change"
+                                )
+                            }
+                        }
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+                    // Handle accuracy changes if needed
+                }
+            }
+
+            mSensorManager.registerListener(
+                accelerometerSensorListener,
+                accelerometerSensor,
+                SensorManager.SENSOR_DELAY_NORMAL
+            )
+        }
     }
 
     class NetworkTask : AsyncTask<Void, Void, Void>() {
