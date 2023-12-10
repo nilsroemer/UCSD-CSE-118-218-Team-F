@@ -7,13 +7,19 @@
 package com.example.watch_client.presentation
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
+import android.hardware.SensorEventListener2
 import android.hardware.SensorManager
 import android.os.AsyncTask
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,25 +30,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Text
-import com.example.watch_client.R
-import com.example.watch_client.presentation.theme.Watch_ClientTheme
-
-import androidx.compose.ui.graphics.Color
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.Text
+import com.example.watch_client.presentation.theme.Watch_ClientTheme
+import org.json.JSONObject
+import java.io.BufferedInputStream
+import java.io.BufferedReader
 import java.io.DataOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-import android.content.Context
-import android.hardware.SensorEventListener2
-import android.os.PowerManager
+import android.os.Handler;
 
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +57,9 @@ class MainActivity : ComponentActivity() {
     var avg_heart_rate = 0.0
     var old_intensity = -1
     var intensity = -1
+
+    private lateinit var handler: Handler
+    private lateinit var runnable: Runnable
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,7 +123,7 @@ class MainActivity : ComponentActivity() {
                     if (old_intensity != intensity)
                     {
                         networkTask.setDataValue(intensity)
-                        networkTask.execute()
+                        //networkTask.execute()
                     }
 
                 }
@@ -137,7 +147,7 @@ class MainActivity : ComponentActivity() {
         var previousAcceleration = 9.6
 
         if(accelerometerSensor != null) {
-            Log.d("Accelerometer", "Accelerometer started")
+            //Log.d("Accelerometer", "Accelerometer started")
 
             val accelerationChangeBuffer = RingBuffer(ACCELERATION_CHANGE_BUFFER_SIZE)
 
@@ -191,6 +201,33 @@ class MainActivity : ComponentActivity() {
                 accelerometerSensor,
                 SensorManager.SENSOR_DELAY_NORMAL
             )
+        }
+
+        // Initialize the Handler
+        handler = Handler()
+
+        // Initialize the Runnable
+        runnable = object : Runnable {
+            override fun run() {
+                // Call the function you want to execute
+                vibFunc()
+
+                // Schedule the Runnable to run again after 2 seconds
+                handler.postDelayed(this, 2000)
+            }
+        }
+
+        handler.postDelayed(runnable, 2500)
+    }
+
+    // The function you want to execute every 2 seconds
+    private fun vibFunc() {
+        val networkTaskVib = NetworkTaskVibrate()
+        networkTaskVib.execute()
+        var tmp = networkTaskVib.getVib()
+
+        if(tmp) {
+            vibrateForTwoSeconds(this)
         }
     }
 
@@ -254,6 +291,93 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    class NetworkTaskVibrate : AsyncTask<Void, Void, Void>() {
+        var activateVib = false
+
+        override fun doInBackground(vararg params: Void?): Void? {
+            // Perform your network operations here
+            // This method runs in a background thread
+            val ipAddress = "wombat-meet-antelope.ngrok-free.app"
+            //val ipAddress = "192.168.0.224"
+            //val port = "3000"
+            val data = "{" +
+                    "\"user\": \"user_1\"" +
+                    "}"
+
+            try {
+                val url = URL("https://$ipAddress/vibrate")
+                //val url = URL("https://$ipAddress:$port/send-data")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+
+                val outputStream = DataOutputStream(connection.outputStream)
+                outputStream.writeBytes(data)
+                outputStream.flush()
+                outputStream.close()
+
+                val responseCode = connection.responseCode
+                if(responseCode == HttpURLConnection.HTTP_OK) {
+                    val inputStream = BufferedInputStream(connection.inputStream)
+                    val response = convertStreamToString(inputStream)
+                    Log.d("FitBeat", "HTTP response ok: $response")
+                    inputStream.close()
+
+                    // Parse the JSON response
+                    val jsonObject = JSONObject(response)
+                    // TODO: Check if value contains right value
+                    val value = jsonObject.optBoolean("value", false)
+
+                    if(value) {
+                        activateVib = true
+                    }
+                } else {
+                    Log.d("FitBeat", "HTTP response not ok")
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            return null
+        }
+
+        fun getVib(): Boolean {
+            if(activateVib) {
+                activateVib = false
+                return true
+            } else {
+                return false
+            }
+
+        }
+
+        override fun onPostExecute(result: Void?) {
+            // Update the UI or perform any post-execution tasks
+            // This method runs on the main UI thread
+        }
+
+        private fun convertStreamToString(inputStream: InputStream): String {
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val stringBuilder = StringBuilder()
+            var line: String?
+            try {
+                while (reader.readLine().also { line = it } != null) {
+                    stringBuilder.append(line).append('\n')
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            } finally {
+                try {
+                    inputStream.close()
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+            }
+            return stringBuilder.toString()
+        }
+    }
+
     class RingBuffer(capacity: Int) {
         private val buffer: DoubleArray
         private var size = 0
@@ -283,6 +407,19 @@ class MainActivity : ComponentActivity() {
 
         fun size(): Int {
             return size
+        }
+    }
+
+    fun vibrateForTwoSeconds(context: MainActivity) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+        if (vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(2000, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(2000)
+            }
         }
     }
 }
